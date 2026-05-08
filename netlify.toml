@@ -1,5 +1,5 @@
 [build]
-  command = "uv pip install -r requirements.txt --target functions"
+  command = "pip install -r requirements.txt --target functions"
   publish = "."
 
 [functions]
