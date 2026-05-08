@@ -246,8 +246,8 @@
         <svg width="30" height="30" viewBox="0 0 24 24" fill="white"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
     </button>
 
-    <script src="https://cdn.jsdelivr.net/npm/@pipecat-ai/client-js@latest/dist/index.global.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@pipecat-ai/daily-transport@latest/dist/index.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@pipecat-ai/client-js@0.3.3/dist/index.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@pipecat-ai/daily-transport@0.3.3/dist/index.global.js"></script>
     <script>
         let calendar;
         let rtviClient;
@@ -337,26 +337,36 @@
 
         async function startVoiceCall() {
             try {
-                // Check for HTTPS
-                if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
-                    alert("Microphone access requires an HTTPS connection. Please use your Netlify URL.");
-                    resetCallUI();
+                // 1. Force Browser Mic Permission Check
+                statusText.innerText = "Requesting Microphone...";
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    stream.getTracks().forEach(track => track.stop()); // Close test stream
+                } catch (micErr) {
+                    console.error("Mic Permission Denied:", micErr);
+                    statusText.innerText = "Mic Permission Denied";
+                    alert("Please allow microphone access in your browser settings and try again.");
+                    setTimeout(resetCallUI, 3000);
                     return;
                 }
 
-                // Initialize the RTVI Client
-                rtviClient = new pipecat.PipecatClient({
-                    transport: new daily.DailyTransport(),
+                // 2. Initialize RTVI Client (using the global RTVI object from CDN)
+                const { PipecatClient } = RTVI;
+                const { DailyTransport } = RTVI_DAILY;
+
+                rtviClient = new PipecatClient({
+                    transport: new DailyTransport(),
                     params: {
                         idleTimeout: 30
                     },
-                    enableMic: true, // Explicitly enable mic
+                    enableMic: true,
                     enableCam: false
                 });
 
-                // Listen for events
+                // 3. Event Handlers
                 rtviClient.on("connected", () => {
                     statusText.innerText = "Maya is listening...";
+                    document.getElementById('voice-indicator').style.animation = "pulse 1.5s infinite";
                 });
 
                 rtviClient.on("botReady", () => {
@@ -365,26 +375,34 @@
 
                 rtviClient.on("disconnected", () => {
                     resetCallUI();
-                    fetchData(); // Refresh calendar after call
+                    fetchData();
                 });
 
                 rtviClient.on("error", (err) => {
-                    console.error("Pipecat Error:", err);
-                    statusText.innerText = "Connection failed";
+                    console.error("Pipecat Cloud Error:", err);
+                    statusText.innerText = "Call Error";
                     setTimeout(resetCallUI, 3000);
                 });
 
-                // Connect to our backend proxy to start the cloud agent
+                // 4. Connect via Backend Proxy
+                statusText.innerText = "Connecting to Maya...";
                 await rtviClient.startBotAndConnect({
                     endpoint: "/api/start-bot"
                 });
 
             } catch (error) {
-                console.error("Call Error:", error);
-                statusText.innerText = "Call failed";
+                console.error("Critical Call Error:", error);
+                statusText.innerText = "Connection Failed";
                 setTimeout(resetCallUI, 3000);
             }
         }
     </script>
+    <style>
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(197, 160, 89, 0.7); }
+            70% { box-shadow: 0 0 0 20px rgba(197, 160, 89, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(197, 160, 89, 0); }
+        }
+    </style>
 </body>
 </html>
