@@ -25,6 +25,8 @@ app.add_middleware(
 # Supabase Config
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+PIPECAT_CLOUD_API_KEY = os.getenv("PIPECAT_CLOUD_API_KEY")
+AGENT_ID = os.getenv("AGENT_ID")
 
 # Persistent Session
 class SupabaseClient:
@@ -163,6 +165,26 @@ async def root():
     if html_path.exists():
         return html_path.read_text()
     return "<h1>Maya Salon API is running</h1>"
+
+@app.post("/api/start-bot")
+async def start_bot():
+    """Start a Pipecat Cloud agent session."""
+    if not PIPECAT_CLOUD_API_KEY or not AGENT_ID:
+        raise HTTPException(status_code=500, detail="Pipecat Cloud not configured")
+    
+    url = f"https://api.pipecat.ai/v1/agents/{AGENT_ID}/start"
+    headers = {
+        "Authorization": f"Bearer {PIPECAT_CLOUD_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, headers=headers) as resp:
+            if resp.status != 200:
+                err = await resp.text()
+                print(f"Pipecat Cloud Error: {err}")
+                raise HTTPException(status_code=resp.status, detail="Failed to start agent")
+            return await resp.json()
 
 # Netlify Function Handler
 handler = Mangum(app)

@@ -1,0 +1,9 @@
+.venv
+.git
+__pycache__
+*.pyc
+.env
+.python-version
+build_logs.txt
+test_api.py
+test_supabase.py

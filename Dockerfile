@@ -2,22 +2,22 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies including those needed for C++ extensions
 RUN apt-get update && apt-get install -y \
     build-essential \
+    cmake \
+    pkg-config \
+    libasound2-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install uv for fast dependency management
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
-
-# Copy dependency files
-COPY pyproject.toml uv.lock ./
+# Copy requirements file
+COPY requirements.txt .
 
 # Install dependencies
-RUN uv sync --frozen
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy project files
 COPY . .
 
 # Run the bot
-CMD ["uv", "run", "bot.py"]
+CMD ["python", "bot.py"]
