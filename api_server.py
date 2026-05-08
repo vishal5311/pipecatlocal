@@ -155,7 +155,9 @@ async def voice_status(phone: str):
 @app.get("/appointments")
 async def get_appointments():
     data = await db.request("GET", "appointments", select="*,services(name)")
-    if not data or not isinstance(data, list):
+    if data is None:
+        raise HTTPException(status_code=500, detail="Database connection failed. Check SUPABASE_URL and SUPABASE_KEY.")
+    if not isinstance(data, list):
         return []
     return data
 

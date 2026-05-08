@@ -212,8 +212,9 @@
                     <h2 class="sidebar-title">Upcoming Appointments</h2>
                     <div id="appointment-list" class="appointment-list">
                         <!-- Appointments will be loaded here -->
-                        <div class="appointment-item">
+                        <div id="loading-spinner" class="appointment-item">
                             <div class="appointment-name">Loading...</div>
+                            <div id="error-msg" style="color: #ff4444; font-size: 0.8rem; margin-top: 0.5rem; display: none;"></div>
                         </div>
                     </div>
                     <button class="btn" onclick="fetchData()">Refresh Data</button>
@@ -272,18 +273,22 @@
         });
 
         async function fetchData() {
+            const errorEl = document.getElementById('error-msg');
             try {
                 console.log("Fetching appointments...");
-                // Use relative path to handle Netlify redirects correctly
-                const response = await fetch('./appointments');
+                // Use absolute path for Netlify compatibility
+                const response = await fetch('/appointments');
                 
                 if (!response.ok) {
-                    throw new Error(`API Error: ${response.status}`);
+                    const errBody = await response.text();
+                    throw new Error(`API Error ${response.status}: ${errBody}`);
                 }
 
                 const appointments = await response.json();
                 console.log("Data received:", appointments);
                 
+                if (errorEl) errorEl.style.display = 'none';
+
                 // Update Calendar
                 const calendarEvents = appointments.map(app => {
                     const serviceName = app.services && !Array.isArray(app.services) 
@@ -325,6 +330,10 @@
                 }
             } catch (error) {
                 console.error('Error fetching data:', error);
+                if (errorEl) {
+                    errorEl.innerText = "Connection failed. Check Netlify logs.";
+                    errorEl.style.display = 'block';
+                }
             }
         }
 

@@ -212,8 +212,9 @@
                     <h2 class="sidebar-title">Upcoming Appointments</h2>
                     <div id="appointment-list" class="appointment-list">
                         <!-- Appointments will be loaded here -->
-                        <div class="appointment-item">
+                        <div id="loading-spinner" class="appointment-item">
                             <div class="appointment-name">Loading...</div>
+                            <div id="error-msg" style="color: #ff4444; font-size: 0.8rem; margin-top: 0.5rem; display: none;"></div>
                         </div>
                     </div>
                     <button class="btn" onclick="fetchData()">Refresh Data</button>
@@ -272,18 +273,22 @@
         });
 
         async function fetchData() {
+            const errorEl = document.getElementById('error-msg');
             try {
                 console.log("Fetching appointments...");
-                // Use relative path to handle Netlify redirects correctly
-                const response = await fetch('./appointments');
+                // Use absolute path for Netlify compatibility
+                const response = await fetch('/appointments');
                 
                 if (!response.ok) {
-                    throw new Error(`API Error: ${response.status}`);
+                    const errBody = await response.text();
+                    throw new Error(`API Error ${response.status}: ${errBody}`);
                 }
 
                 const appointments = await response.json();
                 console.log("Data received:", appointments);
                 
+                if (errorEl) errorEl.style.display = 'none';
+
                 // Update Calendar
                 const calendarEvents = appointments.map(app => {
                     const serviceName = app.services && !Array.isArray(app.services) 
@@ -325,6 +330,10 @@
                 }
             } catch (error) {
                 console.error('Error fetching data:', error);
+                if (errorEl) {
+                    errorEl.innerText = "Connection failed. Check Netlify logs.";
+                    errorEl.style.display = 'block';
+                }
             }
         }
 
@@ -358,61 +367,65 @@
 
         async function startVoiceCall() {
             try {
-                // 1. Force Browser Mic Permission Check
+                // 1. Check for Libraries
+                if (typeof Pipecat === 'undefined') {
+                    console.error("Pipecat library not loaded!");
+                    statusText.innerText = "Library Load Error";
+                    return;
+                }
+
+                // 2. Force Browser Mic Permission Check
                 statusText.innerText = "Requesting Microphone...";
                 try {
                     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    stream.getTracks().forEach(track => track.stop()); // Close test stream
+                    stream.getTracks().forEach(track => track.stop());
                 } catch (micErr) {
-                    console.error("Mic Permission Denied:", micErr);
-                    statusText.innerText = "Mic Permission Denied";
-                    alert("Please allow microphone access in your browser settings and try again.");
+                    statusText.innerText = "Mic Denied";
+                    alert("Please allow microphone access and refresh the page.");
                     setTimeout(resetCallUI, 3000);
                     return;
                 }
 
-                // 2. Initialize RTVI Client (using the global RTVI object from CDN)
-                const { PipecatClient } = RTVI;
-                const { DailyTransport } = RTVI_DAILY;
+                // 3. Initialize RTVI Client
+                const { PipecatClient } = Pipecat;
+                // DailyTransport is usually in PipecatDaily or similar, let's try to find it
+                const TransportClass = (typeof DailyTransport !== 'undefined') ? DailyTransport : (window.PipecatDaily ? window.PipecatDaily.DailyTransport : null);
+                
+                if (!TransportClass) {
+                    console.error("Transport library not found!");
+                    statusText.innerText = "Transport Error";
+                    return;
+                }
 
                 rtviClient = new PipecatClient({
-                    transport: new DailyTransport(),
-                    params: {
-                        idleTimeout: 30
-                    },
+                    transport: new TransportClass(),
+                    params: { idleTimeout: 30 },
                     enableMic: true,
                     enableCam: false
                 });
 
-                // 3. Event Handlers
+                // 4. Event Handlers
                 rtviClient.on("connected", () => {
                     statusText.innerText = "Maya is listening...";
                     document.getElementById('voice-indicator').style.animation = "pulse 1.5s infinite";
                 });
 
-                rtviClient.on("botReady", () => {
-                    statusText.innerText = "Connected to Maya";
-                });
-
-                rtviClient.on("disconnected", () => {
-                    resetCallUI();
-                    fetchData();
-                });
-
+                rtviClient.on("botReady", () => { statusText.innerText = "Connected to Maya"; });
+                rtviClient.on("disconnected", () => { resetCallUI(); fetchData(); });
                 rtviClient.on("error", (err) => {
-                    console.error("Pipecat Cloud Error:", err);
+                    console.error("Call Error:", err);
                     statusText.innerText = "Call Error";
                     setTimeout(resetCallUI, 3000);
                 });
 
-                // 4. Connect via Backend Proxy
+                // 5. Connect
                 statusText.innerText = "Connecting to Maya...";
                 await rtviClient.startBotAndConnect({
                     endpoint: "/api/start-bot"
                 });
 
             } catch (error) {
-                console.error("Critical Call Error:", error);
+                console.error("Critical Failure:", error);
                 statusText.innerText = "Connection Failed";
                 setTimeout(resetCallUI, 3000);
             }
