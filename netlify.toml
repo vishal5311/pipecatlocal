@@ -1,0 +1,21 @@
+[build]
+  command = "uv pip install -r requirements.txt --target functions"
+  publish = "."
+
+[functions]
+  directory = "functions"
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api_server/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/services"
+  to = "/.netlify/functions/api_server/services"
+  status = 200
+
+[[redirects]]
+  from = "/appointments"
+  to = "/.netlify/functions/api_server/appointments"
+  status = 200

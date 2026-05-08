@@ -1,0 +1,53 @@
+# PIPECAT SALON PROJECT RUN COMMANDS
+
+### 1. Prerequisites
+Make sure you have 'uv' installed (https://docs.astral.sh/uv/).
+Ensure your .env file is configured with:
+- DEEPGRAM_API_KEY
+- OPENROUTER_API_KEY
+- SUPABASE_URL
+- SUPABASE_KEY
+
+### 3. Database Setup (Optional/Initial)
+If you haven't set up your Supabase tables yet:
+1. Go to your Supabase SQL Editor.
+2. Copy and run the contents of 'supabase_schema.sql'.
+3. This will create the 'services' and 'appointments' tables.
+
+### 4. Install Dependencies
+Run this once to set up the environment:
+uv sync
+
+### 5. Start the API Server (Backend & UI)
+Open a terminal and run:
+uv run api_server.py
+# The UI will be available at http://localhost:8000
+
+### 6. Start the Voice Bot
+Open another terminal and run:
+uv run bot.py
+
+### 7. Usage
+1. **Admin Dashboard**: Go to http://localhost:8000 to see the calendar and upcoming appointments.
+2. **Voice Bot Client**: Go to http://localhost:7860/client in your browser.
+3. Click **Connect** on the Pipecat client page to start talking to Maya.
+4. Book a service (e.g., "I'd like a haircut tomorrow at 5 PM").
+5. Refresh the Admin Dashboard at http://localhost:8000 to see your new booking!
+
+---
+
+### 8. Deployment (Production)
+
+#### A. Deploy the API & Dashboard to Netlify
+1. Initialize a Git repo: `git init`, `git add .`, `git commit -m "Initial commit"`
+2. Push to GitHub.
+3. Connect your GitHub repo to **Netlify**.
+4. Set the following Environment Variables in Netlify:
+   - `SUPABASE_URL`
+   - `SUPABASE_KEY`
+
+#### B. Deploy the Voice Bot to Pipecat Cloud
+1. Login: `pipecat cloud auth login`
+2. Upload Secrets: `pipecat cloud secrets set maya-salon-secrets --file .env`
+3. Deploy: `pipecat cloud deploy`
+4. In Pipecat Cloud Dashboard, set the `API_BASE_URL` environment variable to your **Netlify URL**.

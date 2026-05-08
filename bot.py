@@ -1,8 +1,11 @@
 import os
 import sys
+import asyncio
 from pathlib import Path
 from dotenv import load_dotenv
 from loguru import logger
+import aiohttp
+import json
 
 # Ensure the local .venv is in the path for the IDE and runtime
 venv_path = Path(__file__).parent / ".venv" / "Lib" / "site-packages"
@@ -10,7 +13,8 @@ if venv_path.exists():
     sys.path.append(str(venv_path))
 
 from pipecat.audio.vad.silero import SileroVADAnalyzer
-from pipecat.frames.frames import LLMMessagesAppendFrame
+from pipecat.audio.vad.vad_analyzer import VADParams
+from pipecat.frames.frames import LLMMessagesAppendFrame, TextFrame, Frame
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.task import PipelineParams, PipelineTask
 from pipecat.processors.aggregators.llm_context import LLMContext
@@ -20,7 +24,7 @@ from pipecat.processors.aggregators.llm_response_universal import (
 )
 from pipecat.runner.types import RunnerArguments
 from pipecat.runner.utils import create_transport
-from pipecat.services.cartesia.tts import CartesiaTTSService, CartesiaTTSSettings
+from pipecat.services.deepgram.tts import DeepgramTTSService
 from pipecat.services.deepgram.stt import DeepgramSTTService
 from pipecat.services.llm_service import FunctionCallParams, LLMService
 from pipecat.services.openai.base_llm import OpenAILLMSettings
@@ -32,9 +36,14 @@ from pipecat_subagents.bus import AgentBus, BusBridgeProcessor
 from pipecat_subagents.runner import AgentRunner
 from pipecat_subagents.types import AgentReadyData
 
-# Optional: from pipecat.audio.filters.rnnoise_filter import RNNoiseFilter
-
 load_dotenv(override=True)
+
+# List of keywords to boost transcription accuracy for salon context
+SALON_KEYWORDS = [
+    "haircut", "haircut:3", "Hakka", "Hakka:3", "Harcourt", "Harcourt:3",
+    "haircuts", "haircuts:2", "manicure", "pedicure", "facials", "blowout", 
+    "highlights", "Sanath", "Samad", "booking", "services", "Maya", "luxury", "salon"
+]
 
 SYSTEM_PROMPT = """
 You are Maya, the friendly and intelligent receptionist at a premium luxury salon.
@@ -48,15 +57,30 @@ CONVERSATION FLOW:
 NEVER ask like a form. Ask gradually and naturally.
 If user is unsure, guide them like a real stylist (ask about face shape, hair type, etc.).
 
+TRANSCRIPTION RESILIENCE (NLP):
+The transcription might occasionally be slightly off due to accents. 
+- "searches" or "sergeants" usually means "services".
+- "Hakka", "market", "Harcourt", or "haddock" always means "haircut".
+- "for the night" or "tonight" might mean "Sanath" or a name.
+Always use the salon context to interpret what the user said.
+
 BOOKING RULES:
 Collect naturally: service, date, time, name.
 BEFORE booking, confirm naturally: "hmm… okay… haircut tomorrow at 5… under Rahul… should I go ahead and book that?"
 ONLY AFTER confirmation → call booking tool.
+
+CRITICAL: Never output internal tags like OLCALL or JSON in your speech. Just speak naturally.
 """
 
 class MayaAgent(LLMAgent):
     def __init__(self, name: str, *, bus: AgentBus):
         super().__init__(name, bus=bus, bridged=())
+        self._session = None
+
+    async def get_session(self):
+        if self._session is None or self._session.closed:
+            self._session = aiohttp.ClientSession()
+        return self._session
 
     def build_llm(self) -> LLMService:
         logger.info("Maya building LLM with OpenRouter...")
@@ -73,12 +97,46 @@ class MayaAgent(LLMAgent):
     async def extract_intent(self, params: FunctionCallParams, intent: str, details: dict = None):
         """Handle booking and status check intents."""
         logger.info(f"Maya handling intent: {intent} with details: {details}")
-        await params.llm.queue_frame(
-            LLMMessagesAppendFrame(
-                messages=[{"role": "system", "content": f"Success: Processed {intent} for {details}."}],
-                run_llm=True
-            )
-        )
+        
+        # 1. Define the response immediately for low latency
+        response_text = "Alright, I've got that all set for you! Is there anything else?"
+        if intent == "book":
+            response_text = f"Perfect! I've booked your {details.get('service', 'appointment')} for {details.get('date')} at {details.get('time')}. Anything else I can help with?"
+        elif intent == "check_status":
+            # For status check, we might need to wait for the result to speak accurately
+            # but we can still be fast by using the optimized endpoint
+            pass
+
+        # 2. Queue the response frame IMMEDIATELY to reduce perceived latency
+        if intent != "check_status":
+            await params.llm.queue_frame(TextFrame(text=response_text))
+
+        # 3. Perform the API call in the background or quickly
+        async def do_api_call():
+            session = await self.get_session()
+            base_url = os.getenv("API_BASE_URL", "http://localhost:8000")
+            try:
+                if intent == "book":
+                    await session.post(f"{base_url}/api/voice-book", json=details)
+                elif intent == "check_status":
+                    phone = details.get("phone", "")
+                    async with session.get(f"{base_url}/api/voice-status/{phone}") as resp:
+                        res = await resp.json()
+                        if res["status"] == "found":
+                            app = res["appointment"]
+                            txt = f"I found your appointment for a {app['services']['name']} on {app['appointment_date']} at {app['appointment_time']}."
+                        else:
+                            txt = "I'm sorry, I couldn't find any appointments under that phone number."
+                        await params.llm.queue_frame(TextFrame(text=txt))
+            except Exception as e:
+                logger.error(f"CRITICAL: Background API error calling {intent}: {e}")
+                # You could optionally notify the user here via a TextFrame if desired
+
+        # Fire and forget for booking, wait only for status
+        if intent == "book":
+            asyncio.create_task(do_api_call())
+        else:
+            await do_api_call()
 
     @tool
     async def end_conversation(self, params: FunctionCallParams, reason: str):
@@ -125,16 +183,24 @@ class SaloonAgent(BaseAgent):
 
     async def build_pipeline(self) -> Pipeline:
         logger.info("Building transport pipeline...")
-        stt = DeepgramSTTService(api_key=os.getenv("DEEPGRAM_API_KEY"), model="nova-3-general")
-        tts = CartesiaTTSService(
-            api_key=os.getenv("CARTESIA_API_KEY"),
-            settings=CartesiaTTSSettings(voice="9626c31c-bec5-4cca-baa8-f8ba9e84c8bc")
+        # Deepgram with boosted keywords for instant salon-context understanding
+        stt = DeepgramSTTService(
+            api_key=os.getenv("DEEPGRAM_API_KEY"), 
+            model="nova-3",
+            keywords=SALON_KEYWORDS
+        )
+        tts = DeepgramTTSService(
+            api_key=os.getenv("DEEPGRAM_API_KEY"),
+            voice="aura-luna-en",
+            sample_rate=16000
         )
         
         context = LLMContext()
         context_aggregator = LLMContextAggregatorPair(
             context,
-            user_params=LLMUserAggregatorParams(vad_analyzer=SileroVADAnalyzer()),
+            user_params=LLMUserAggregatorParams(
+                vad_analyzer=SileroVADAnalyzer(params=VADParams(stop_secs=0.2)),
+            ),
         )
 
         return Pipeline([
@@ -148,11 +214,16 @@ class SaloonAgent(BaseAgent):
         ])
 
 async def bot(runner_args: RunnerArguments):
-    transport = await create_transport(runner_args, {"webrtc": lambda: TransportParams(audio_in_enabled=True, audio_out_enabled=True)})
-    runner = AgentRunner(handle_sigint=runner_args.handle_sigint)
-    main = SaloonAgent("saloon", bus=runner.bus, transport=transport)
-    await runner.add_agent(main)
-    await runner.run()
+    try:
+        transport = await create_transport(runner_args, {"webrtc": lambda: TransportParams(audio_in_enabled=True, audio_out_enabled=True)})
+        runner = AgentRunner(handle_sigint=runner_args.handle_sigint)
+        main_agent = SaloonAgent("saloon", bus=runner.bus, transport=transport)
+        await runner.add_agent(main_agent)
+        await runner.run()
+    except asyncio.CancelledError:
+        logger.info("Bot task cancelled gracefully.")
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}")
 
 if __name__ == "__main__":
     from pipecat.runner.run import main

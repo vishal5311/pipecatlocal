@@ -1,0 +1,9 @@
+agent_name = "maya-salon-bot"
+secret_set = "maya-salon-secrets"
+
+[scaling]
+  min_agents = 1
+
+[runtime]
+  python_version = "3.11"
+  command = "python bot.py"
