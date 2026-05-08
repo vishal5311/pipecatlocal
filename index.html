@@ -337,12 +337,21 @@
 
         async function startVoiceCall() {
             try {
+                // Check for HTTPS
+                if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+                    alert("Microphone access requires an HTTPS connection. Please use your Netlify URL.");
+                    resetCallUI();
+                    return;
+                }
+
                 // Initialize the RTVI Client
                 rtviClient = new pipecat.PipecatClient({
                     transport: new daily.DailyTransport(),
                     params: {
                         idleTimeout: 30
-                    }
+                    },
+                    enableMic: true, // Explicitly enable mic
+                    enableCam: false
                 });
 
                 // Listen for events
