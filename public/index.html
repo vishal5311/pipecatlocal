@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maya's Luxury Salon - Admin Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
+    <style>
+        :root {
+            --primary: #c5a059;
+            --secondary: #1a1a1a;
+            --accent: #d4af37;
+            --bg: #0f0f0f;
+            --card-bg: rgba(255, 255, 255, 0.05);
+            --text: #ffffff;
+            --text-dim: #b0b0b0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            background: radial-gradient(circle at top right, #1a1a1a, #0f0f0f);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 3rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 1rem;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 600;
+            background: linear-gradient(to right, var(--primary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -1px;
+        }
+
+        .status-badge {
+            background: var(--card-bg);
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: #4caf50;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #4caf50;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 2rem;
+        }
+
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            border-radius: 24px;
+            padding: 2rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+        }
+
+        #calendar {
+            background: transparent;
+            color: white;
+        }
+
+        .fc {
+            --fc-border-color: rgba(255, 255, 255, 0.1);
+            --fc-button-bg-color: var(--primary);
+            --fc-button-border-color: var(--primary);
+            --fc-button-hover-bg-color: var(--accent);
+            --fc-button-active-bg-color: var(--accent);
+            --fc-today-bg-color: rgba(197, 160, 89, 0.1);
+        }
+
+        .fc .fc-toolbar-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .fc .fc-col-header-cell-cushion {
+            padding: 1rem 0;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            letter-spacing: 1px;
+        }
+
+        .fc-event {
+            background: var(--primary) !important;
+            border: none !important;
+            padding: 2px 4px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .fc-event:hover {
+            transform: scale(1.05);
+            background: var(--accent) !important;
+        }
+
+        .sidebar-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            color: var(--primary);
+        }
+
+        .appointment-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .appointment-item {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 1rem;
+            border-radius: 16px;
+            border-left: 4px solid var(--primary);
+            transition: all 0.3s;
+        }
+
+        .appointment-item:hover {
+            background: rgba(255, 255, 255, 0.06);
+            transform: translateX(5px);
+        }
+
+        .appointment-name {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .appointment-details {
+            font-size: 0.85rem;
+            color: var(--text-dim);
+        }
+
+        .btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 0.8rem 1.5rem;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+            margin-top: 1rem;
+        }
+
+        .btn:hover {
+            background: var(--accent);
+            box-shadow: 0 0 20px rgba(197, 160, 89, 0.4);
+        }
+
+        @media (max-width: 900px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Maya Admin</h1>
+            <div class="status-badge">
+                <div class="status-dot"></div>
+                API Connected
+            </div>
+        </header>
+
+        <div class="dashboard-grid">
+            <div class="card">
+                <div id='calendar'></div>
+            </div>
+
+            <div class="appointment-panel">
+                <div class="card">
+                    <h2 class="sidebar-title">Upcoming Appointments</h2>
+                    <div id="appointment-list" class="appointment-list">
+                        <!-- Appointments will be loaded here -->
+                        <div id="loading-spinner" class="appointment-item">
+                            <div class="appointment-name">Loading...</div>
+                            <div id="error-msg" style="color: #ff4444; font-size: 0.8rem; margin-top: 0.5rem; display: none;"></div>
+                        </div>
+                    </div>
+                    <button class="btn" onclick="fetchData()">Refresh Data</button>
+                </div>
+                
+                <div class="card" style="margin-top: 1.5rem;">
+                    <h2 class="sidebar-title">System Info</h2>
+                    <p style="font-size: 0.9rem; color: var(--text-dim);">
+                        Maya is currently online and handling calls. 
+                        Appointments booked via voice will appear here in real-time.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Call Maya Floating UI -->
+    <div id="call-ui" style="display:none; position: fixed; bottom: 100px; right: 2rem; width: 300px; background: var(--secondary); border: 1px solid var(--primary); border-radius: 20px; padding: 1.5rem; box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 1000;">
+        <div style="text-align: center; margin-bottom: 1rem;">
+            <div id="voice-indicator" style="width: 60px; height: 60px; background: var(--primary); border-radius: 50%; margin: 0 auto 1rem; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 20px var(--primary);">
+                <svg width="30" height="30" viewBox="0 0 24 24" fill="white"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+            </div>
+            <h3 id="call-status">Connecting to Maya...</h3>
+            <p id="call-subtext" style="font-size: 0.8rem; color: var(--text-dim); margin-top: 0.5rem;">Please allow microphone access</p>
+        </div>
+        <button class="btn" id="end-call-btn" style="background: #ff4444;">End Call</button>
+    </div>
+
+    <button id="call-maya-fab" style="position: fixed; bottom: 2rem; right: 2rem; width: 70px; height: 70px; background: var(--primary); border: none; border-radius: 50%; cursor: pointer; box-shadow: 0 10px 30px rgba(197, 160, 89, 0.4); z-index: 1000; display: flex; align-items: center; justify-content: center; transition: all 0.3s;">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="white"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+    </button>
+
+    <!-- Pipecat SDKs -->
+    <script src="https://unpkg.com/@pipecat-ai/client-js"></script>
+    <script src="https://unpkg.com/@pipecat-ai/daily-transport"></script>
+    <script>
+        let calendar;
+        let rtviClient;
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            var calendarEl = document.getElementById('calendar');
+            calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth',
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'dayGridMonth,timeGridWeek,listWeek'
+                },
+                themeSystem: 'standard',
+                events: [],
+                eventClick: function(info) {
+                    alert('Appointment: ' + info.event.title + '\nTime: ' + info.event.start.toLocaleTimeString());
+                }
+            });
+            calendar.render();
+            fetchData();
+        });
+
+        async function fetchData() {
+            const errorEl = document.getElementById('error-msg');
+            try {
+                console.log("Fetching appointments...");
+                // Use explicit API path
+                const response = await fetch('/api/appointments');
+                
+                if (!response.ok) {
+                    const errBody = await response.text();
+                    throw new Error(`API Error ${response.status}: ${errBody}`);
+                }
+
+                const appointments = await response.json();
+                console.log("Data received:", appointments);
+                
+                if (errorEl) errorEl.style.display = 'none';
+
+                // Update Calendar
+                const calendarEvents = appointments.map(app => {
+                    const serviceName = app.services && !Array.isArray(app.services) 
+                        ? app.services.name 
+                        : (Array.isArray(app.services) && app.services[0] ? app.services[0].name : 'Service');
+                        
+                    return {
+                        title: `${app.client_name} - ${serviceName}`,
+                        start: `${app.appointment_date}T${app.appointment_time}`,
+                        id: app.id,
+                        backgroundColor: '#c5a059',
+                        borderColor: '#c5a059'
+                    };
+                });
+                
+                calendar.removeAllEvents();
+                calendar.addEventSource(calendarEvents);
+
+                // Update List
+                const listEl = document.getElementById('appointment-list');
+                if (appointments.length === 0) {
+                    listEl.innerHTML = '<div style="color: var(--text-dim); text-align: center; padding: 1rem;">No appointments found.</div>';
+                } else {
+                    listEl.innerHTML = appointments.map(app => {
+                        const serviceName = app.services && !Array.isArray(app.services) 
+                            ? app.services.name 
+                            : (Array.isArray(app.services) && app.services[0] ? app.services[0].name : 'Service');
+                            
+                        return `
+                            <div class="appointment-item">
+                                <div class="appointment-name">${app.client_name}</div>
+                                <div class="appointment-details">
+                                    ${serviceName} • ${app.appointment_time.substring(0, 5)}<br>
+                                    ${new Date(app.appointment_date).toLocaleDateString()}
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                if (errorEl) {
+                    errorEl.innerText = "Connection failed. Check Netlify logs.";
+                    errorEl.style.display = 'block';
+                }
+            }
+        }
+
+        // Auto-refresh every 30 seconds
+        setInterval(fetchData, 30000);
+
+        // --- Pipecat Voice Client Logic ---
+        const fab = document.getElementById('call-maya-fab');
+        const callUI = document.getElementById('call-ui');
+        const endBtn = document.getElementById('end-call-btn');
+        const statusText = document.getElementById('call-status');
+
+        fab.addEventListener('click', async () => {
+            fab.style.transform = 'scale(0) rotate(90deg)';
+            callUI.style.display = 'block';
+            startVoiceCall();
+        });
+
+        endBtn.addEventListener('click', async () => {
+            if (rtviClient) {
+                await rtviClient.disconnect();
+            }
+            resetCallUI();
+        });
+
+        function resetCallUI() {
+            callUI.style.display = 'none';
+            fab.style.transform = 'scale(1) rotate(0deg)';
+            statusText.innerText = 'Connecting to Maya...';
+        }
+
+        async function startVoiceCall() {
+            try {
+                // 1. Check for Libraries (Check all possible global names)
+                const RTVI_BASE = window.RTVI || window.Pipecat;
+                const RTVI_DAILY_BASE = window.RTVI_DAILY || window.PipecatDaily || window.DailyTransport;
+
+                if (!RTVI_BASE) {
+                    console.error("Pipecat library not loaded!");
+                    statusText.innerText = "Library Load Error";
+                    return;
+                }
+
+                // 2. Force Browser Mic Permission Check
+                statusText.innerText = "Requesting Microphone...";
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    stream.getTracks().forEach(track => track.stop());
+                } catch (micErr) {
+                    statusText.innerText = "Mic Denied";
+                    alert("Please allow microphone access and refresh the page.");
+                    setTimeout(resetCallUI, 3000);
+                    return;
+                }
+
+                // 3. Initialize RTVI Client
+                const PipecatClient = RTVI_BASE.PipecatClient || RTVI_BASE;
+                const DailyTransport = RTVI_DAILY_BASE.DailyTransport || RTVI_DAILY_BASE;
+                
+                if (!DailyTransport || !PipecatClient) {
+                    console.error("Transport or Client library not found!", {PipecatClient, DailyTransport});
+                    statusText.innerText = "Library Error";
+                    return;
+                }
+
+                rtviClient = new PipecatClient({
+                    transport: new DailyTransport(),
+                    params: { idleTimeout: 30 },
+                    enableMic: true,
+                    enableCam: false
+                });
+
+                // 4. Event Handlers
+                rtviClient.on("connected", () => {
+                    statusText.innerText = "Maya is listening...";
+                    document.getElementById('voice-indicator').style.animation = "pulse 1.5s infinite";
+                });
+
+                rtviClient.on("botReady", () => { statusText.innerText = "Connected to Maya"; });
+                rtviClient.on("disconnected", () => { resetCallUI(); fetchData(); });
+                rtviClient.on("error", (err) => {
+                    console.error("Call Error:", err);
+                    statusText.innerText = "Call Error";
+                    setTimeout(resetCallUI, 3000);
+                });
+
+                // 5. Connect
+                statusText.innerText = "Connecting to Maya...";
+                await rtviClient.startBotAndConnect({
+                    endpoint: "/api/api/start-bot"
+                });
+
+            } catch (error) {
+                console.error("Critical Failure:", error);
+                statusText.innerText = "Connection Failed";
+                setTimeout(resetCallUI, 3000);
+            }
+        }
+    </script>
+    <style>
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(197, 160, 89, 0.7); }
+            70% { box-shadow: 0 0 0 20px rgba(197, 160, 89, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(197, 160, 89, 0); }
+        }
+    </style>
+</body>
+</html>

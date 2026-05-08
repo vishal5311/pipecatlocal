@@ -161,12 +161,13 @@ async def get_appointments():
         return []
     return data
 
-@app.get("/", response_class=HTMLResponse)
+@app.get("/api/health")
+async def health():
+    return {"status": "ok", "supabase": supabase is not None}
+
+@app.get("/")
 async def root():
-    html_path = Path(__file__).parent / "index.html"
-    if html_path.exists():
-        return html_path.read_text()
-    return "<h1>Maya Salon API is running</h1>"
+    return {"message": "Maya Salon API is running under /api"}
 
 @app.post("/api/start-bot")
 async def start_bot():

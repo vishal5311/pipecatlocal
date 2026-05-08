@@ -1,9 +1,11 @@
 [build]
-  command = "pip install -r requirements.txt --target functions"
-  publish = "."
+  command = "pip install -r requirements.txt"
+  publish = "public"
+  functions = "functions"
 
 [functions]
-  directory = "functions"
+  node_bundler = "esbuild"
+  external_node_modules = ["mangum"]
 
 [[redirects]]
   from = "/api/*"
@@ -11,11 +13,11 @@
   status = 200
 
 [[redirects]]
-  from = "/services"
-  to = "/.netlify/functions/api_server/services"
+  from = "/appointments"
+  to = "/.netlify/functions/api_server/appointments"
   status = 200
 
 [[redirects]]
-  from = "/appointments"
-  to = "/.netlify/functions/api_server/appointments"
+  from = "/services"
+  to = "/.netlify/functions/api_server/services"
   status = 200
