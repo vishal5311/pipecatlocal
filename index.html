@@ -273,16 +273,31 @@
 
         async function fetchData() {
             try {
-                // Fetch appointments from our API
-                const response = await fetch('/appointments');
+                console.log("Fetching appointments...");
+                // Use relative path to handle Netlify redirects correctly
+                const response = await fetch('./appointments');
+                
+                if (!response.ok) {
+                    throw new Error(`API Error: ${response.status}`);
+                }
+
                 const appointments = await response.json();
+                console.log("Data received:", appointments);
                 
                 // Update Calendar
-                const calendarEvents = appointments.map(app => ({
-                    title: `${app.client_name} - ${app.services?.name || 'Service'}`,
-                    start: `${app.appointment_date}T${app.appointment_time}`,
-                    id: app.id
-                }));
+                const calendarEvents = appointments.map(app => {
+                    const serviceName = app.services && !Array.isArray(app.services) 
+                        ? app.services.name 
+                        : (Array.isArray(app.services) && app.services[0] ? app.services[0].name : 'Service');
+                        
+                    return {
+                        title: `${app.client_name} - ${serviceName}`,
+                        start: `${app.appointment_date}T${app.appointment_time}`,
+                        id: app.id,
+                        backgroundColor: '#c5a059',
+                        borderColor: '#c5a059'
+                    };
+                });
                 
                 calendar.removeAllEvents();
                 calendar.addEventSource(calendarEvents);
@@ -292,15 +307,21 @@
                 if (appointments.length === 0) {
                     listEl.innerHTML = '<div style="color: var(--text-dim); text-align: center; padding: 1rem;">No appointments found.</div>';
                 } else {
-                    listEl.innerHTML = appointments.map(app => `
-                        <div class="appointment-item">
-                            <div class="appointment-name">${app.client_name}</div>
-                            <div class="appointment-details">
-                                ${app.services?.name || 'Service'} • ${app.appointment_time.substring(0, 5)}<br>
-                                ${new Date(app.appointment_date).toLocaleDateString()}
+                    listEl.innerHTML = appointments.map(app => {
+                        const serviceName = app.services && !Array.isArray(app.services) 
+                            ? app.services.name 
+                            : (Array.isArray(app.services) && app.services[0] ? app.services[0].name : 'Service');
+                            
+                        return `
+                            <div class="appointment-item">
+                                <div class="appointment-name">${app.client_name}</div>
+                                <div class="appointment-details">
+                                    ${serviceName} • ${app.appointment_time.substring(0, 5)}<br>
+                                    ${new Date(app.appointment_date).toLocaleDateString()}
+                                </div>
                             </div>
-                        </div>
-                    `).join('');
+                        `;
+                    }).join('');
                 }
             } catch (error) {
                 console.error('Error fetching data:', error);
