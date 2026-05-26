@@ -8,8 +8,13 @@ dependencies = [
     "fastapi>=0.136.1",
     "loguru>=0.7.3",
     "mangum>=0.21.0",
-    "pipecat-ai-subagents>=0.4.0",
-    "pipecat-ai[cartesia,deepgram,openai,rnnoise,runner,silero,webrtc]>=1.1.0",
     "python-dotenv>=1.2.2",
     "uvicorn>=0.46.0",
 ]
+
+[project.optional-dependencies]
+bot = [
+    "pipecat-ai-subagents>=0.4.0",
+    "pipecat-ai[cartesia,deepgram,openai,rnnoise,runner,silero,webrtc]>=1.1.0",
+]
+
