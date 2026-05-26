@@ -167,6 +167,10 @@ async def health():
 
 @app.get("/")
 async def root():
+    html_path = Path("index.html")
+    if html_path.exists():
+        with open(html_path, "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read())
     return {"message": "Maya Salon API is running under /api"}
 
 @app.post("/api/start-bot")
