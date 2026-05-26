@@ -20,4 +20,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Run the bot
-CMD ["python", "bot.py"]
+CMD ["sh", "-c", "python bot.py --host 0.0.0.0 --port ${PORT:-7860}"]
