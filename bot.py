@@ -7,6 +7,10 @@ from loguru import logger
 import aiohttp
 import json
 
+# Fix encoding issue for Windows terminal emojis
+if sys.stdout.encoding.lower() != "utf-8":
+    sys.stdout.reconfigure(encoding="utf-8")
+
 # Ensure the local .venv is in the path for the IDE and runtime
 venv_path = Path(__file__).parent / ".venv" / "Lib" / "site-packages"
 if venv_path.exists():
@@ -186,13 +190,16 @@ class SaloonAgent(BaseAgent):
         # Deepgram with boosted keywords for instant salon-context understanding
         stt = DeepgramSTTService(
             api_key=os.getenv("DEEPGRAM_API_KEY"), 
-            model="nova-3",
-            keywords=SALON_KEYWORDS
+            settings=DeepgramSTTService.Settings(
+                model="nova-2",
+                keywords=SALON_KEYWORDS
+            )
         )
         tts = DeepgramTTSService(
             api_key=os.getenv("DEEPGRAM_API_KEY"),
-            voice="aura-luna-en",
-            sample_rate=16000
+            settings=DeepgramTTSService.Settings(
+                voice="aura-luna-en"
+            )
         )
         
         context = LLMContext()
